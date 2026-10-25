@@ -5,6 +5,7 @@ import RootLayout from '../layouts/RootLayout';
 import Home from '../pages/Home/Home';
 import AddBook from '../pages/AddBook/AddBook';
 import BookDetails from '../pages/BookDetails/BookDetails';
+import EditBook from '../pages/EditBook/EditBook';
 
 const router = createBrowserRouter([
   {
@@ -23,6 +24,10 @@ const router = createBrowserRouter([
         path: 'books/:id',
         Component: BookDetails,
       },
+     {
+    path: '/books/edit/:id',
+    element: <EditBook />,
+},
     ],
   },
 ]);
