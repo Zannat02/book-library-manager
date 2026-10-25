@@ -250,90 +250,28 @@ app.get('/api/books', async (req, res) => {
 
         
      
-        // Get all reviews for a book
-        app.get('/api/books/:id/reviews', async (req, res) => {
+        // Submit a rating for a book
+        app.patch('/api/books/:id/rating', async (req, res) => {
             try {
                 const { ObjectId } = require('mongodb');
                 const { id } = req.params;
+                const { rating } = req.body;
 
                 if (!ObjectId.isValid(id)) {
                     return res.status(400).json({
                         success: false,
                         message: 'Invalid book ID.'
-                    });
-                }
-
-                const book = await booksCollection.findOne({
-                    _id: new ObjectId(id)
-                });
-
-                if (!book) {
-                    return res.status(404).json({
-                        success: false,
-                        message: 'Book not found.'
-                    });
-                }
-
-                const reviews = await reviewsCollection
-                    .find({ bookId: new ObjectId(id) })
-                    .sort({ createdAt: -1 })
-                    .toArray();
-
-                return res.status(200).json({
-                    success: true,
-                    message: 'Reviews fetched successfully.',
-                    data: reviews
-                });
-            } catch (error) {
-                console.error('Error fetching reviews:', error.message);
-
-                return res.status(500).json({
-                    success: false,
-                    message: 'Failed to fetch reviews.'
-                });
-            }
-        });
-
-
-        // Submit a rating, a written review, or both
-        app.post('/api/books/:id/reviews', async (req, res) => {
-            try {
-                const { ObjectId } = require('mongodb');
-                const { id } = req.params;
-                const { rating, review } = req.body;
-
-                if (!ObjectId.isValid(id)) {
-                    return res.status(400).json({
-                        success: false,
-                        message: 'Invalid book ID.'
-                    });
-                }
-
-                const hasRating = rating !== undefined && rating !== null;
-                const hasReview =
-                    typeof review === 'string' && review.trim().length > 0;
-
-                if (!hasRating && !hasReview) {
-                    return res.status(400).json({
-                        success: false,
-                        message: 'Provide a rating, a written review, or both.'
                     });
                 }
 
                 if (
-                    hasRating &&
-                    (!Number.isInteger(rating) || rating < 1 || rating > 5)
+                    !Number.isInteger(rating) ||
+                    rating < 1 ||
+                    rating > 5
                 ) {
                     return res.status(400).json({
                         success: false,
                         message: 'Rating must be an integer between 1 and 5.'
-                    });
-                }
-
-                if (hasReview && review.trim().length > 1000) {
-                    return res.status(400).json({
-                        success: false,
-                        message: 'Review must not exceed 1000 characters.'
                     });
                 }
 
@@ -350,75 +288,48 @@ app.get('/api/books', async (req, res) => {
                     });
                 }
 
-                const newReview = {
-                    bookId: bookObjectId,
-                    ...(hasRating ? { rating } : {}),
-                    ...(hasReview ? { review: review.trim() } : {}),
-                    createdAt: new Date()
-                };
+                const previousTotal = Number(book.totalRatings) || 0;
+                const previousAverage = Number(book.rating) || 0;
 
-                const result = await reviewsCollection.insertOne(newReview);
+                const newTotal = previousTotal + 1;
 
-                // Recalculate the average from all submitted ratings
-                const ratingStats = await reviewsCollection
-                    .aggregate([
-                        {
-                            $match: {
-                                bookId: bookObjectId,
-                                rating: { $exists: true }
-                            }
-                        },
-                        {
-                            $group: {
-                                _id: null,
-                                averageRating: { $avg: '$rating' },
-                                totalRatings: { $sum: 1 }
-                            }
-                        }
-                    ])
-                    .toArray();
-
-                const stats = ratingStats[0] || {
-                    averageRating: 0,
-                    totalRatings: 0
-                };
+                const newAverage = Number(
+                    (
+                        (previousAverage * previousTotal + rating) /
+                        newTotal
+                    ).toFixed(1)
+                );
 
                 await booksCollection.updateOne(
                     { _id: bookObjectId },
                     {
                         $set: {
-                            rating: Number(stats.averageRating.toFixed(1)),
-                            totalRatings: stats.totalRatings,
+                            rating: newAverage,
+                            totalRatings: newTotal,
                             updatedAt: new Date()
                         }
                     }
                 );
 
-                const savedReview = await reviewsCollection.findOne({
-                    _id: result.insertedId
-                });
-
                 const updatedBook = await booksCollection.findOne({
                     _id: bookObjectId
                 });
 
-                return res.status(201).json({
+                return res.status(200).json({
                     success: true,
-                    message: 'Your rating/review was submitted successfully.',
-                    data: {
-                        review: savedReview,
-                        book: updatedBook
-                    }
+                    message: 'Rating submitted successfully.',
+                    data: updatedBook
                 });
             } catch (error) {
-                console.error('Error submitting review:', error.message);
+                console.error('Error submitting rating:', error);
 
                 return res.status(500).json({
                     success: false,
-                    message: 'Failed to submit rating/review.'
+                    message: 'Failed to submit rating.'
                 });
             }
         });
+
 
 
 
