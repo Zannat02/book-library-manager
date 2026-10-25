@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import {
     ArrowLeft,
     BookOpen,
@@ -15,16 +15,22 @@ import {
     AlertCircle,
     Pencil,
     Trash2,
+    X,
 } from 'lucide-react';
 
 const API_URL = 'http://localhost:5000/api/books';
 
 const BookDetails = () => {
     const { id } = useParams();
+    const navigate = useNavigate();
 
     const [book, setBook] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+
+    const [deleting, setDeleting] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
 
     useEffect(() => {
         const controller = new AbortController();
@@ -63,12 +69,41 @@ const BookDetails = () => {
         return () => controller.abort();
     }, [id]);
 
+    const handleDelete = async () => {
+        try {
+            setDeleting(true);
+            setDeleteError('');
+
+            const response = await fetch(`${API_URL}/${id}`, {
+                method: 'DELETE',
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(
+                    result.message || 'Failed to delete book.'
+                );
+            }
+
+            navigate('/');
+        } catch (err) {
+            setDeleteError(
+                err.message || 'Something went wrong while deleting the book.'
+            );
+            setDeleting(false);
+            setShowDeleteConfirm(false);
+        }
+    };
+
     if (loading) {
         return (
             <main className="flex min-h-[60vh] items-center justify-center">
                 <div className="flex items-center gap-3 text-[#2F8F70]">
                     <LoaderCircle className="animate-spin" size={24} />
-                    <span className="font-medium">Loading book details...</span>
+                    <span className="font-medium">
+                        Loading book details...
+                    </span>
                 </div>
             </main>
         );
@@ -81,12 +116,15 @@ const BookDetails = () => {
                     className="mx-auto mb-4 text-red-500"
                     size={42}
                 />
+
                 <h1 className="text-2xl font-bold text-[#241942]">
                     Unable to Load Book
                 </h1>
+
                 <p className="mt-3 text-gray-500">
                     {error || 'The requested book could not be found.'}
                 </p>
+
                 <Link
                     to="/"
                     className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#241942] px-5 py-3 font-medium text-white transition hover:bg-[#35265A]"
@@ -120,6 +158,24 @@ const BookDetails = () => {
                     <ArrowLeft size={18} />
                     Back to Library
                 </Link>
+
+                {deleteError && (
+                    <div
+                        role="alert"
+                        className="mb-5 flex items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+                    >
+                        <p>{deleteError}</p>
+
+                        <button
+                            type="button"
+                            onClick={() => setDeleteError('')}
+                            aria-label="Dismiss error"
+                            className="shrink-0"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+                )}
 
                 <section className="overflow-hidden rounded-3xl border border-[#EAE6F2] bg-white shadow-sm">
                     <div className="grid gap-8 p-5 sm:p-8 lg:grid-cols-[300px_1fr] lg:gap-12 lg:p-10">
@@ -185,10 +241,12 @@ const BookDetails = () => {
                                             size={19}
                                             className="mt-0.5 shrink-0 text-[#2F8F70]"
                                         />
+
                                         <div className="min-w-0">
                                             <p className="text-xs font-medium text-[#8B829B]">
                                                 {label}
                                             </p>
+
                                             <p className="mt-1 break-words font-semibold text-[#352B4A]">
                                                 {value || 'Not provided'}
                                             </p>
@@ -232,9 +290,11 @@ const BookDetails = () => {
 
                                 <button
                                     type="button"
-                                    disabled
-                                    title="Delete functionality will be added next"
-                                    className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl border border-red-200 px-5 py-3 font-semibold text-red-400 opacity-60"
+                                    onClick={() => {
+                                        setDeleteError('');
+                                        setShowDeleteConfirm(true);
+                                    }}
+                                    className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-5 py-3 font-semibold text-red-600 transition hover:bg-red-50"
                                 >
                                     <Trash2 size={17} />
                                     Delete Book
@@ -244,6 +304,85 @@ const BookDetails = () => {
                     </div>
                 </section>
             </div>
+
+            {showDeleteConfirm && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                    onClick={(event) => {
+                        if (
+                            event.target === event.currentTarget &&
+                            !deleting
+                        ) {
+                            setShowDeleteConfirm(false);
+                        }
+                    }}
+                >
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="delete-dialog-title"
+                        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+                    >
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <h2
+                                    id="delete-dialog-title"
+                                    className="text-xl font-bold text-[#241942]"
+                                >
+                                    Delete this book?
+                                </h2>
+
+                                <p className="mt-3 text-sm leading-6 text-gray-600">
+                                    Are you sure you want to delete{' '}
+                                    <span className="font-semibold">
+                                        "{book.title}"
+                                    </span>
+                                    ? This action cannot be undone.
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                disabled={deleting}
+                                onClick={() => setShowDeleteConfirm(false)}
+                                aria-label="Close confirmation"
+                                className="rounded-lg p-1 text-gray-500 transition hover:bg-gray-100 disabled:opacity-50"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="mt-6 flex justify-end gap-3">
+                            <button
+                                type="button"
+                                disabled={deleting}
+                                onClick={() => setShowDeleteConfirm(false)}
+                                className="rounded-xl border border-gray-200 px-4 py-2.5 font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                type="button"
+                                disabled={deleting}
+                                onClick={handleDelete}
+                                className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {deleting ? (
+                                    <LoaderCircle
+                                        className="animate-spin"
+                                        size={17}
+                                    />
+                                ) : (
+                                    <Trash2 size={17} />
+                                )}
+
+                                {deleting ? 'Deleting...' : 'Confirm Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </main>
     );
 };
