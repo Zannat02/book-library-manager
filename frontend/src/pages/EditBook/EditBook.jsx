@@ -1,9 +1,10 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ArrowLeft, LoaderCircle, Save } from 'lucide-react';
 
-const API_URL = 'http://localhost:5000/api/books';
+import { API_URL } from '../config';
+
+const BOOKS_API = `${API_URL}/api/books`;
 
 const initialForm = {
     title: '',
@@ -40,7 +41,7 @@ const EditBook = () => {
                 setLoading(true);
                 setError('');
 
-                const response = await fetch(`${API_URL}/${id}`, {
+                const response = await fetch(`${BOOKS_API}/${id}`, {
                     signal: controller.signal,
                 });
 
@@ -174,7 +175,7 @@ const EditBook = () => {
         try {
             setSaving(true);
 
-            const response = await fetch(`${API_URL}/${id}`, {
+            const response = await fetch(`${BOOKS_API}/${id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',

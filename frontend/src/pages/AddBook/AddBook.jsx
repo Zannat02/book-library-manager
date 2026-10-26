@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
@@ -10,7 +9,9 @@ import {
     LoaderCircle,
 } from 'lucide-react';
 
-const API_URL = 'http://localhost:5000/api/books';
+import { API_URL } from '../config';
+
+const BOOKS_API = `${API_URL}/api/books`;
 
 const initialForm = {
     title: '',
@@ -111,7 +112,7 @@ const AddBook = () => {
         try {
             setLoading(true);
 
-            const response = await fetch(API_URL, {
+            const response = await fetch(BOOKS_API, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

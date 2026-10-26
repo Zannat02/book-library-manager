@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import {
@@ -20,7 +19,9 @@ import {
     CheckCircle,
 } from 'lucide-react';
 
-const API_URL = 'http://localhost:5000/api/books';
+import { API_URL } from '../config';
+
+const BOOKS_API = `${API_URL}/api/books`;
 
 const BookDetails = () => {
     const { id } = useParams();
@@ -49,7 +50,7 @@ const BookDetails = () => {
                 setLoading(true);
                 setError('');
 
-                const response = await fetch(`${API_URL}/${id}`, {
+                const response = await fetch(`${BOOKS_API}/${id}`, {
                     signal: controller.signal,
                 });
 
@@ -91,7 +92,7 @@ const BookDetails = () => {
             setRatingError('');
             setRatingMessage('');
 
-            const response = await fetch(`${API_URL}/${id}/rating`, {
+            const response = await fetch(`${BOOKS_API}/${id}/rating`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -123,7 +124,7 @@ const BookDetails = () => {
                     ...updatedBook,
                 }));
             } else {
-                const bookResponse = await fetch(`${API_URL}/${id}`);
+                const bookResponse = await fetch(`${BOOKS_API}/${id}`);
                 const bookResult = await bookResponse.json();
 
                 if (!bookResponse.ok || !bookResult.success) {
@@ -153,7 +154,7 @@ const BookDetails = () => {
             setDeleting(true);
             setDeleteError('');
 
-            const response = await fetch(`${API_URL}/${id}`, {
+            const response = await fetch(`${BOOKS_API}/${id}`, {
                 method: 'DELETE',
             });
 

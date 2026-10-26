@@ -10,7 +10,9 @@ import {
     RefreshCw,
 } from 'lucide-react';
 
-const API_URL = 'http://localhost:5000/api/books';
+import { API_URL } from '../config';
+
+const BOOKS_API = `${API_URL}/api/books`;
 
 const BookCollection = () => {
     const [searchInput, setSearchInput] = useState('');
@@ -44,7 +46,7 @@ const BookCollection = () => {
                 }
 
                 const response = await fetch(
-                    `${API_URL}?${params.toString()}`,
+                    `${BOOKS_API}?${params.toString()}`,
                     { signal: controller.signal }
                 );
 
@@ -61,7 +63,7 @@ const BookCollection = () => {
                 if (err.name !== 'AbortError') {
                     setError(
                         err.message ||
-                            'Could not connect to the server.'
+                        'Could not connect to the server.'
                     );
                 }
             } finally {
