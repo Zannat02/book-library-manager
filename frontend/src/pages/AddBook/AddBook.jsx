@@ -44,10 +44,16 @@ const AddBook = () => {
             ...previous,
             [name]: value,
         }));
+
+        if (error) {
+            setError('');
+        }
     };
 
     const handleSubmit = async (event) => {
         event.preventDefault();
+
+        if (loading) return;
 
         setError('');
         setSuccess('');
@@ -113,6 +119,15 @@ const AddBook = () => {
                 body: JSON.stringify(bookData),
             });
 
+            const contentType =
+                response.headers.get('content-type') || '';
+
+            if (!contentType.includes('application/json')) {
+                throw new Error(
+                    'The server returned an unexpected response. Please check that the backend is running correctly.'
+                );
+            }
+
             const result = await response.json();
 
             if (!response.ok || !result.success) {
@@ -122,9 +137,8 @@ const AddBook = () => {
             }
 
             setSuccess('Your book has been added successfully!');
-            setForm(initialForm);
+            setForm({ ...initialForm });
 
-            // Keep the success message visible before navigating.
             setTimeout(() => {
                 navigate('/');
             }, 1200);
@@ -139,7 +153,7 @@ const AddBook = () => {
     };
 
     const inputClass =
-        'mt-2 w-full border border-gray-200 bg-white px-4 py-3 text-sm text-[#241942] outline-none transition placeholder:text-gray-400 focus:border-[#2F8F70]';
+        'mt-2 w-full border border-gray-200 bg-white px-4 py-3 text-sm text-[#241942] outline-none transition placeholder:text-gray-400 focus:border-[#2F8F70] disabled:cursor-not-allowed disabled:bg-gray-50';
 
     const labelClass =
         'block text-sm font-semibold text-[#241942]';
@@ -156,7 +170,6 @@ const AddBook = () => {
                 </Link>
 
                 <div className="mt-8 grid gap-10 lg:grid-cols-[0.8fr_1.7fr] lg:gap-14">
-                    {/* Introduction */}
                     <section>
                         <div className="flex h-12 w-12 items-center justify-center bg-[#E9E3FA] text-[#241942]">
                             <BookOpen size={24} />
@@ -203,15 +216,16 @@ const AddBook = () => {
                         )}
                     </section>
 
-                    {/* Form */}
                     <section className="bg-white p-5 shadow-sm sm:p-8">
                         <form
                             onSubmit={handleSubmit}
                             className="space-y-6"
+                            noValidate
                         >
                             {error && (
                                 <div
                                     role="alert"
+                                    aria-live="assertive"
                                     className="flex gap-3 border border-red-200 bg-red-50 p-4 text-sm text-red-700"
                                 >
                                     <AlertCircle
@@ -225,6 +239,7 @@ const AddBook = () => {
                             {success && (
                                 <div
                                     role="status"
+                                    aria-live="polite"
                                     className="flex gap-3 border border-green-200 bg-green-50 p-4 text-sm text-green-800"
                                 >
                                     <CheckCircle2
@@ -235,280 +250,285 @@ const AddBook = () => {
                                 </div>
                             )}
 
-                            <div className="grid gap-5 sm:grid-cols-2">
-                                <div className="sm:col-span-2">
-                                    <label
-                                        htmlFor="title"
-                                        className={labelClass}
-                                    >
-                                        Book title *
-                                    </label>
-                                    <input
-                                        id="title"
-                                        name="title"
-                                        value={form.title}
-                                        onChange={handleChange}
-                                        placeholder="e.g. The Alchemist"
-                                        required
-                                        className={inputClass}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label
-                                        htmlFor="author"
-                                        className={labelClass}
-                                    >
-                                        Author *
-                                    </label>
-                                    <input
-                                        id="author"
-                                        name="author"
-                                        value={form.author}
-                                        onChange={handleChange}
-                                        placeholder="Author name"
-                                        required
-                                        className={inputClass}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label
-                                        htmlFor="genre"
-                                        className={labelClass}
-                                    >
-                                        Genre
-                                    </label>
-                                    <select
-                                        id="genre"
-                                        name="genre"
-                                        value={form.genre}
-                                        onChange={handleChange}
-                                        className={inputClass}
-                                    >
-                                        <option value="Fiction">Fiction</option>
-                                        <option value="Fantasy">Fantasy</option>
-                                        <option value="Science">Science</option>
-                                        <option value="Mystery">Mystery</option>
-                                        <option value="Romance">Romance</option>
-                                        <option value="Biography">Biography</option>
-                                        <option value="Adventure">Adventure</option>
-                                        <option value="History">History</option>
-                                        <option value="Self-help">Self-help</option>
-                                        <option value="Uncategorized">Uncategorized</option>
-                                    </select>
-                                </div>
-
-                                <div className="sm:col-span-2">
-                                    <label
-                                        htmlFor="description"
-                                        className={labelClass}
-                                    >
-                                        Description
-                                    </label>
-                                    <textarea
-                                        id="description"
-                                        name="description"
-                                        value={form.description}
-                                        onChange={handleChange}
-                                        rows={4}
-                                        placeholder="What is this book about?"
-                                        className={inputClass}
-                                    />
-                                </div>
-
-                                <div className="sm:col-span-2">
-                                    <label
-                                        htmlFor="coverImage"
-                                        className={labelClass}
-                                    >
-                                        Cover image URL
-                                    </label>
-                                    <div className="relative">
-                                        <Upload
-                                            size={18}
-                                            className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-400"
-                                        />
+                            <fieldset
+                                disabled={loading}
+                                className="min-w-0 space-y-6 disabled:opacity-80"
+                            >
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                    <div className="sm:col-span-2">
+                                        <label
+                                            htmlFor="title"
+                                            className={labelClass}
+                                        >
+                                            Book title *
+                                        </label>
                                         <input
-                                            id="coverImage"
-                                            name="coverImage"
-                                            type="url"
-                                            value={form.coverImage}
+                                            id="title"
+                                            name="title"
+                                            value={form.title}
                                             onChange={handleChange}
-                                            placeholder="https://example.com/book-cover.jpg"
-                                            className={`${inputClass} pl-11`}
+                                            placeholder="e.g. The Alchemist"
+                                            required
+                                            className={inputClass}
                                         />
                                     </div>
-                                </div>
 
-                                <div>
-                                    <label
-                                        htmlFor="isbn"
-                                        className={labelClass}
-                                    >
-                                        ISBN
-                                    </label>
-                                    <input
-                                        id="isbn"
-                                        name="isbn"
-                                        value={form.isbn}
-                                        onChange={handleChange}
-                                        placeholder="ISBN number"
-                                        className={inputClass}
-                                    />
-                                </div>
+                                    <div>
+                                        <label
+                                            htmlFor="author"
+                                            className={labelClass}
+                                        >
+                                            Author *
+                                        </label>
+                                        <input
+                                            id="author"
+                                            name="author"
+                                            value={form.author}
+                                            onChange={handleChange}
+                                            placeholder="Author name"
+                                            required
+                                            className={inputClass}
+                                        />
+                                    </div>
 
-                                <div>
-                                    <label
-                                        htmlFor="publisher"
-                                        className={labelClass}
-                                    >
-                                        Publisher
-                                    </label>
-                                    <input
-                                        id="publisher"
-                                        name="publisher"
-                                        value={form.publisher}
-                                        onChange={handleChange}
-                                        placeholder="Publisher name"
-                                        className={inputClass}
-                                    />
-                                </div>
+                                    <div>
+                                        <label
+                                            htmlFor="genre"
+                                            className={labelClass}
+                                        >
+                                            Genre
+                                        </label>
+                                        <select
+                                            id="genre"
+                                            name="genre"
+                                            value={form.genre}
+                                            onChange={handleChange}
+                                            className={inputClass}
+                                        >
+                                            <option value="Fiction">Fiction</option>
+                                            <option value="Fantasy">Fantasy</option>
+                                            <option value="Science">Science</option>
+                                            <option value="Mystery">Mystery</option>
+                                            <option value="Romance">Romance</option>
+                                            <option value="Biography">Biography</option>
+                                            <option value="Adventure">Adventure</option>
+                                            <option value="History">History</option>
+                                            <option value="Self-help">Self-help</option>
+                                            <option value="Uncategorized">Uncategorized</option>
+                                        </select>
+                                    </div>
 
-                                <div>
-                                    <label
-                                        htmlFor="publishedYear"
-                                        className={labelClass}
-                                    >
-                                        Publication year
-                                    </label>
-                                    <input
-                                        id="publishedYear"
-                                        name="publishedYear"
-                                        type="number"
-                                        min="0"
-                                        step="1"
-                                        value={form.publishedYear}
-                                        onChange={handleChange}
-                                        placeholder="e.g. 2024"
-                                        className={inputClass}
-                                    />
-                                </div>
+                                    <div className="sm:col-span-2">
+                                        <label
+                                            htmlFor="description"
+                                            className={labelClass}
+                                        >
+                                            Description
+                                        </label>
+                                        <textarea
+                                            id="description"
+                                            name="description"
+                                            value={form.description}
+                                            onChange={handleChange}
+                                            rows={4}
+                                            placeholder="What is this book about?"
+                                            className={inputClass}
+                                        />
+                                    </div>
 
-                                <div>
-                                    <label
-                                        htmlFor="pages"
-                                        className={labelClass}
-                                    >
-                                        Number of pages
-                                    </label>
-                                    <input
-                                        id="pages"
-                                        name="pages"
-                                        type="number"
-                                        min="1"
-                                        step="1"
-                                        value={form.pages}
-                                        onChange={handleChange}
-                                        placeholder="e.g. 250"
-                                        className={inputClass}
-                                    />
-                                </div>
+                                    <div className="sm:col-span-2">
+                                        <label
+                                            htmlFor="coverImage"
+                                            className={labelClass}
+                                        >
+                                            Cover image URL
+                                        </label>
+                                        <div className="relative">
+                                            <Upload
+                                                size={18}
+                                                className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-400"
+                                            />
+                                            <input
+                                                id="coverImage"
+                                                name="coverImage"
+                                                type="url"
+                                                value={form.coverImage}
+                                                onChange={handleChange}
+                                                placeholder="https://example.com/book-cover.jpg"
+                                                className={`${inputClass} pl-11`}
+                                            />
+                                        </div>
+                                    </div>
 
-                                <div>
-                                    <label
-                                        htmlFor="language"
-                                        className={labelClass}
-                                    >
-                                        Language
-                                    </label>
-                                    <input
-                                        id="language"
-                                        name="language"
-                                        value={form.language}
-                                        onChange={handleChange}
-                                        className={inputClass}
-                                    />
-                                </div>
+                                    <div>
+                                        <label
+                                            htmlFor="isbn"
+                                            className={labelClass}
+                                        >
+                                            ISBN
+                                        </label>
+                                        <input
+                                            id="isbn"
+                                            name="isbn"
+                                            value={form.isbn}
+                                            onChange={handleChange}
+                                            placeholder="ISBN number"
+                                            className={inputClass}
+                                        />
+                                    </div>
 
-                                <div>
-                                    <label
-                                        htmlFor="format"
-                                        className={labelClass}
-                                    >
-                                        Format
-                                    </label>
-                                    <select
-                                        id="format"
-                                        name="format"
-                                        value={form.format}
-                                        onChange={handleChange}
-                                        className={inputClass}
-                                    >
-                                        <option value="Paperback">Paperback</option>
-                                        <option value="Hardcover">Hardcover</option>
-                                        <option value="Ebook">Ebook</option>
-                                        <option value="Audiobook">Audiobook</option>
-                                    </select>
-                                </div>
+                                    <div>
+                                        <label
+                                            htmlFor="publisher"
+                                            className={labelClass}
+                                        >
+                                            Publisher
+                                        </label>
+                                        <input
+                                            id="publisher"
+                                            name="publisher"
+                                            value={form.publisher}
+                                            onChange={handleChange}
+                                            placeholder="Publisher name"
+                                            className={inputClass}
+                                        />
+                                    </div>
 
-                                <div>
-                                    <label
-                                        htmlFor="edition"
-                                        className={labelClass}
-                                    >
-                                        Edition
-                                    </label>
-                                    <input
-                                        id="edition"
-                                        name="edition"
-                                        value={form.edition}
-                                        onChange={handleChange}
-                                        placeholder="e.g. First Edition"
-                                        className={inputClass}
-                                    />
-                                </div>
+                                    <div>
+                                        <label
+                                            htmlFor="publishedYear"
+                                            className={labelClass}
+                                        >
+                                            Publication year
+                                        </label>
+                                        <input
+                                            id="publishedYear"
+                                            name="publishedYear"
+                                            type="number"
+                                            min="0"
+                                            step="1"
+                                            value={form.publishedYear}
+                                            onChange={handleChange}
+                                            placeholder="e.g. 2024"
+                                            className={inputClass}
+                                        />
+                                    </div>
 
-                                <div>
-                                    <label
-                                        htmlFor="price"
-                                        className={labelClass}
-                                    >
-                                        Price
-                                    </label>
-                                    <input
-                                        id="price"
-                                        name="price"
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        value={form.price}
-                                        onChange={handleChange}
-                                        placeholder="e.g. 15.99"
-                                        className={inputClass}
-                                    />
-                                </div>
+                                    <div>
+                                        <label
+                                            htmlFor="pages"
+                                            className={labelClass}
+                                        >
+                                            Number of pages
+                                        </label>
+                                        <input
+                                            id="pages"
+                                            name="pages"
+                                            type="number"
+                                            min="1"
+                                            step="1"
+                                            value={form.pages}
+                                            onChange={handleChange}
+                                            placeholder="e.g. 250"
+                                            className={inputClass}
+                                        />
+                                    </div>
 
-                                <div className="sm:col-span-2">
-                                    <label
-                                        htmlFor="tags"
-                                        className={labelClass}
-                                    >
-                                        Tags
-                                    </label>
-                                    <input
-                                        id="tags"
-                                        name="tags"
-                                        value={form.tags}
-                                        onChange={handleChange}
-                                        placeholder="adventure, inspiration, fiction"
-                                        className={inputClass}
-                                    />
-                                    <p className="mt-2 text-xs text-gray-400">
-                                        Separate tags with commas.
-                                    </p>
+                                    <div>
+                                        <label
+                                            htmlFor="language"
+                                            className={labelClass}
+                                        >
+                                            Language
+                                        </label>
+                                        <input
+                                            id="language"
+                                            name="language"
+                                            value={form.language}
+                                            onChange={handleChange}
+                                            className={inputClass}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label
+                                            htmlFor="format"
+                                            className={labelClass}
+                                        >
+                                            Format
+                                        </label>
+                                        <select
+                                            id="format"
+                                            name="format"
+                                            value={form.format}
+                                            onChange={handleChange}
+                                            className={inputClass}
+                                        >
+                                            <option value="Paperback">Paperback</option>
+                                            <option value="Hardcover">Hardcover</option>
+                                            <option value="Ebook">Ebook</option>
+                                            <option value="Audiobook">Audiobook</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label
+                                            htmlFor="edition"
+                                            className={labelClass}
+                                        >
+                                            Edition
+                                        </label>
+                                        <input
+                                            id="edition"
+                                            name="edition"
+                                            value={form.edition}
+                                            onChange={handleChange}
+                                            placeholder="e.g. First Edition"
+                                            className={inputClass}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label
+                                            htmlFor="price"
+                                            className={labelClass}
+                                        >
+                                            Price
+                                        </label>
+                                        <input
+                                            id="price"
+                                            name="price"
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            value={form.price}
+                                            onChange={handleChange}
+                                            placeholder="e.g. 15.99"
+                                            className={inputClass}
+                                        />
+                                    </div>
+
+                                    <div className="sm:col-span-2">
+                                        <label
+                                            htmlFor="tags"
+                                            className={labelClass}
+                                        >
+                                            Tags
+                                        </label>
+                                        <input
+                                            id="tags"
+                                            name="tags"
+                                            value={form.tags}
+                                            onChange={handleChange}
+                                            placeholder="adventure, inspiration, fiction"
+                                            className={inputClass}
+                                        />
+                                        <p className="mt-2 text-xs text-gray-400">
+                                            Separate tags with commas.
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
+                            </fieldset>
 
                             <div className="flex flex-col gap-3 border-t border-gray-100 pt-6 sm:flex-row">
                                 <button
@@ -534,6 +554,12 @@ const AddBook = () => {
 
                                 <Link
                                     to="/"
+                                    aria-disabled={loading}
+                                    onClick={(event) => {
+                                        if (loading) {
+                                            event.preventDefault();
+                                        }
+                                    }}
                                     className="inline-flex items-center justify-center border border-gray-200 bg-white px-6 py-4 text-sm font-semibold text-[#241942] transition hover:bg-gray-50"
                                 >
                                     Cancel
