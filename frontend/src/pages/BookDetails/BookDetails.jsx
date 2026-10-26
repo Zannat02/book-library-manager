@@ -19,7 +19,7 @@ import {
     CheckCircle,
 } from 'lucide-react';
 
-import { API_URL } from '../config';
+import { API_URL } from '../../config';
 
 const BOOKS_API = `${API_URL}/api/books`;
 

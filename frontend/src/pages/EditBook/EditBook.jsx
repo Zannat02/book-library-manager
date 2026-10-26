@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ArrowLeft, LoaderCircle, Save } from 'lucide-react';
 
-import { API_URL } from '../config';
+import { API_URL } from '../../config';
 
 const BOOKS_API = `${API_URL}/api/books`;
 
