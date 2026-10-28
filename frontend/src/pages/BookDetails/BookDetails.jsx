@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
+import { request } from '../../utils/api';
 import {
     ArrowLeft,
     BookOpen,
@@ -149,32 +150,22 @@ const BookDetails = () => {
         }
     };
 
-    const handleDelete = async () => {
-        try {
-            setDeleting(true);
-            setDeleteError('');
+   const handleDelete = async () => {
+    try {
+        setDeleting(true);
+        setDeleteError('');
 
-            const response = await fetch(`${BOOKS_API}/${id}`, {
-                method: 'DELETE',
-            });
+        await request(`${BOOKS_API}/${id}`, { method: 'DELETE' });
 
-            const result = await response.json();
-
-            if (!response.ok || !result.success) {
-                throw new Error(
-                    result.message || 'Failed to delete book.'
-                );
-            }
-
-            navigate('/');
-        } catch (err) {
-            setDeleteError(
-                err.message || 'Something went wrong while deleting the book.'
-            );
-            setDeleting(false);
-            setShowDeleteConfirm(false);
-        }
-    };
+        navigate('/');
+    } catch (err) {
+        setDeleteError(
+            err.message || 'Something went wrong while deleting the book.'
+        );
+        setDeleting(false);
+        setShowDeleteConfirm(false);
+    }
+};
 
     if (loading) {
         return (

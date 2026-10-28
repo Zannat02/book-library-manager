@@ -23,6 +23,7 @@ const BookCollection = () => {
     const [books, setBooks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -76,7 +77,7 @@ const BookCollection = () => {
         fetchBooks();
 
         return () => controller.abort();
-    }, [search, genre]);
+    }, [search, genre,reloadKey]);
 
     const handleBrowse = (event) => {
         event.preventDefault();
@@ -187,10 +188,7 @@ const BookCollection = () => {
 
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setSearch((current) => current + ' ');
-                                    setSearch((current) => current.trim());
-                                }}
+                               onClick={() => setReloadKey((k) => k + 1)}
                                 className="mt-5 inline-flex items-center gap-2 border border-[#241942] bg-[#241942] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#2F8F70]"
                             >
                                 <RefreshCw size={16} />
