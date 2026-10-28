@@ -109,13 +109,3 @@ curl -X POST http://localhost:5000/api/books \
 ## State management
 
 Each page keeps its data in local React state (`useState`). Every request tracks its own `loading` and `error` state. In-flight requests are cancelled with `AbortController`, and a shared `request()` helper (`src/utils/api.js`) handles JSON parsing and error messages.
-
-## Possible improvements
-
-- Pagination on the collection page
-- User accounts, so each user can rate a book only once
-- Image upload instead of cover image URLs
-
-## Author
-
-Your Name · [LinkedIn](https://linkedin.com/in/your-profile) · [GitHub](https://github.com/your-username)
