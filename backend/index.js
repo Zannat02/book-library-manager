@@ -1,4 +1,3 @@
-
 const express = require('express');
 const cors = require('cors');
 const { MongoClient, ObjectId } = require('mongodb');
@@ -24,11 +23,28 @@ let connectionPromise;
 async function connectDB() {
     if (!connectionPromise) {
         connectionPromise = client.connect()
-            .then(() => {
+            .then(async () => {
                 console.log('MongoDB connected successfully!');
 
                 const db = client.db('bookLibraryDB');
                 booksCollection = db.collection('books');
+
+                // Unique ISBN (ignores books that have no ISBN).
+                // Non-fatal: if old duplicate ISBNs exist, the API still works.
+                try {
+                    await booksCollection.createIndex(
+                        { isbn: 1 },
+                        {
+                            unique: true,
+                            partialFilterExpression: { isbn: { $gt: '' } }
+                        }
+                    );
+                } catch (indexError) {
+                    console.warn(
+                        'Could not create unique ISBN index:',
+                        indexError.message
+                    );
+                }
             })
             .catch((error) => {
                 connectionPromise = null;
@@ -37,6 +53,55 @@ async function connectDB() {
     }
 
     await connectionPromise;
+}
+
+// Validate optional fields (numbers, tags, string fields).
+// Returns an error message, or null if everything is valid.
+const STRING_FIELDS = [
+    'description',
+    'genre',
+    'publisher',
+    'language',
+    'coverImage',
+    'format',
+    'edition'
+];
+
+function validateOptional(data) {
+    const { publishedYear, pages, price, tags } = data;
+
+    if (
+        publishedYear != null &&
+        (!Number.isInteger(publishedYear) || publishedYear < 0)
+    ) {
+        return 'Published year must be a non-negative whole number.';
+    }
+
+    if (pages != null && (!Number.isInteger(pages) || pages < 1)) {
+        return 'Pages must be a positive whole number.';
+    }
+
+    if (
+        price != null &&
+        (typeof price !== 'number' || !Number.isFinite(price) || price < 0)
+    ) {
+        return 'Price must be a non-negative number.';
+    }
+
+    if (
+        tags !== undefined &&
+        (!Array.isArray(tags) || tags.some((tag) => typeof tag !== 'string'))
+    ) {
+        return 'Tags must be an array of strings.';
+    }
+
+    for (const field of STRING_FIELDS) {
+        if (data[field] !== undefined && typeof data[field] !== 'string') {
+            return `${field} must be a string.`;
+        }
+    }
+
+    return null;
 }
 
 // Connect to MongoDB before processing API requests.
@@ -196,6 +261,27 @@ app.post('/api/books', async (req, res) => {
             });
         }
 
+        const optionalError = validateOptional({
+            description,
+            genre,
+            publisher,
+            publishedYear,
+            language,
+            pages,
+            coverImage,
+            price,
+            format,
+            edition,
+            tags
+        });
+
+        if (optionalError) {
+            return res.status(400).json({
+                success: false,
+                message: optionalError
+            });
+        }
+
         const normalizedIsbn = typeof isbn === 'string'
             ? isbn.trim()
             : '';
@@ -243,7 +329,9 @@ app.post('/api/books', async (req, res) => {
             edition: typeof edition === 'string'
                 ? edition.trim()
                 : '',
-            tags: Array.isArray(tags) ? tags : [],
+            tags: Array.isArray(tags)
+                ? tags.map((tag) => tag.trim()).filter(Boolean)
+                : [],
             rating: 0,
             totalRatings: 0,
             createdAt: currentDate,
@@ -261,6 +349,13 @@ app.post('/api/books', async (req, res) => {
             }
         });
     } catch (error) {
+        if (error.code === 11000) {
+            return res.status(409).json({
+                success: false,
+                message: 'A book with this ISBN already exists.'
+            });
+        }
+
         console.error('Error adding book:', error.message);
 
         res.status(500).json({
@@ -326,12 +421,27 @@ app.patch('/api/books/:id', async (req, res) => {
             });
         }
 
+        const optionalError = validateOptional(updates);
+
+        if (optionalError) {
+            return res.status(400).json({
+                success: false,
+                message: optionalError
+            });
+        }
+
         if ('title' in updates) {
             updates.title = updates.title.trim();
         }
 
         if ('author' in updates) {
             updates.author = updates.author.trim();
+        }
+
+        if ('tags' in updates) {
+            updates.tags = updates.tags
+                .map((tag) => tag.trim())
+                .filter(Boolean);
         }
 
         if ('isbn' in updates) {
@@ -383,6 +493,13 @@ app.patch('/api/books/:id', async (req, res) => {
             data: updatedBook
         });
     } catch (error) {
+        if (error.code === 11000) {
+            return res.status(409).json({
+                success: false,
+                message: 'A book with this ISBN already exists.'
+            });
+        }
+
         console.error('Error updating book:', error.message);
 
         res.status(500).json({
