@@ -1,37 +1,49 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ArrowLeft, LoaderCircle, Save } from 'lucide-react';
+import {
+    ArrowLeft,
+    LoaderCircle,
+    Save,
+    AlertCircle,
+    CheckCircle2,
+    RefreshCw,
+} from 'lucide-react';
 
 import { API_URL } from '../../config';
+import { request } from '../../utils/api';
 
 const BOOKS_API = `${API_URL}/api/books`;
 
+const GENRES = [
+    'Fiction', 'Fantasy', 'Science', 'Mystery', 'Romance',
+    'Biography', 'Adventure', 'History', 'Self-help', 'Uncategorized',
+];
+const FORMATS = ['Paperback', 'Hardcover', 'Ebook', 'Audiobook'];
+
 const initialForm = {
-    title: '',
-    author: '',
-    description: '',
-    isbn: '',
-    genre: '',
-    publisher: '',
-    publishedYear: '',
-    language: '',
-    pages: '',
-    coverImage: '',
-    price: '',
-    format: '',
-    edition: '',
-    tags: '',
+    title: '', author: '', description: '', isbn: '', genre: 'Uncategorized',
+    publisher: '', publishedYear: '', language: '', pages: '', coverImage: '',
+    price: '', format: 'Paperback', edition: '', tags: '',
 };
+
+// Empty input -> null, so a cleared number field is really cleared.
+const toNumberOrNull = (value) =>
+    String(value).trim() === '' ? null : Number(value);
 
 const EditBook = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const redirectTimer = useRef(null);
 
     const [formData, setFormData] = useState(initialForm);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
+    const [reloadKey, setReloadKey] = useState(0);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+
+    useEffect(() => () => clearTimeout(redirectTimer.current), []);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -39,107 +51,69 @@ const EditBook = () => {
         const fetchBook = async () => {
             try {
                 setLoading(true);
-                setError('');
+                setLoadError('');
 
-                const response = await fetch(`${BOOKS_API}/${id}`, {
+                const { data: book } = await request(`${BOOKS_API}/${id}`, {
                     signal: controller.signal,
                 });
-
-                const result = await response.json();
-
-                if (!response.ok || !result.success) {
-                    throw new Error(
-                        result.message || 'Failed to load book.'
-                    );
-                }
-
-                const book = result.data;
 
                 setFormData({
                     title: book.title || '',
                     author: book.author || '',
                     description: book.description || '',
                     isbn: book.isbn || '',
-                    genre: book.genre || '',
+                    genre: book.genre || 'Uncategorized',
                     publisher: book.publisher || '',
                     publishedYear: book.publishedYear ?? '',
                     language: book.language || '',
                     pages: book.pages ?? '',
                     coverImage: book.coverImage || '',
                     price: book.price ?? '',
-                    format: book.format || '',
+                    format: book.format || 'Paperback',
                     edition: book.edition || '',
-                    tags: Array.isArray(book.tags)
-                        ? book.tags.join(', ')
-                        : '',
+                    tags: Array.isArray(book.tags) ? book.tags.join(', ') : '',
                 });
             } catch (err) {
                 if (err.name !== 'AbortError') {
-                    setError(err.message || 'Failed to load book.');
+                    setLoadError(err.message || 'Failed to load book.');
                 }
             } finally {
-                if (!controller.signal.aborted) {
-                    setLoading(false);
-                }
+                if (!controller.signal.aborted) setLoading(false);
             }
         };
 
         fetchBook();
-
         return () => controller.abort();
-    }, [id]);
+    }, [id, reloadKey]);
 
     const handleChange = (event) => {
         const { name, value } = event.target;
-
-        setFormData((previous) => ({
-            ...previous,
-            [name]: value,
-        }));
+        setFormData((previous) => ({ ...previous, [name]: value }));
+        if (error) setError('');
     };
 
     const handleSubmit = async (event) => {
         event.preventDefault();
+        if (saving || success) return;
+
         setError('');
-        setSuccess('');
 
         if (!formData.title.trim() || !formData.author.trim()) {
             setError('Title and author are required.');
             return;
         }
 
-        const publishedYear = formData.publishedYear === ''
-            ? undefined
-            : Number(formData.publishedYear);
-
-        const pages = formData.pages === ''
-            ? undefined
-            : Number(formData.pages);
-
-        const price = formData.price === ''
-            ? undefined
-            : Number(formData.price);
+        const publishedYear = toNumberOrNull(formData.publishedYear);
+        const pages = toNumberOrNull(formData.pages);
+        const price = toNumberOrNull(formData.price);
 
         if (
-            publishedYear !== undefined &&
-            (!Number.isInteger(publishedYear) ||
-                publishedYear < 0 ||
-                publishedYear > new Date().getFullYear())
+            (publishedYear !== null &&
+                (!Number.isInteger(publishedYear) || publishedYear < 0)) ||
+            (pages !== null && (!Number.isInteger(pages) || pages < 1)) ||
+            (price !== null && (!Number.isFinite(price) || price < 0))
         ) {
-            setError('Please enter a valid published year.');
-            return;
-        }
-
-        if (
-            pages !== undefined &&
-            (!Number.isInteger(pages) || pages < 1)
-        ) {
-            setError('Pages must be a positive whole number.');
-            return;
-        }
-
-        if (price !== undefined && (!Number.isFinite(price) || price < 0)) {
-            setError('Price cannot be negative.');
+            setError('Please enter a valid publication year, page count, and price.');
             return;
         }
 
@@ -148,54 +122,32 @@ const EditBook = () => {
             author: formData.author.trim(),
             description: formData.description.trim(),
             isbn: formData.isbn.trim(),
-            genre: formData.genre.trim(),
+            genre: formData.genre,
             publisher: formData.publisher.trim(),
             language: formData.language.trim(),
             coverImage: formData.coverImage.trim(),
-            format: formData.format.trim(),
+            format: formData.format,
             edition: formData.edition.trim(),
-            tags: formData.tags
-                .split(',')
-                .map((tag) => tag.trim())
-                .filter(Boolean),
+            publishedYear,
+            pages,
+            price,
+            tags: formData.tags.split(',').map((t) => t.trim()).filter(Boolean),
         };
-
-        if (publishedYear !== undefined) {
-            payload.publishedYear = publishedYear;
-        }
-
-        if (pages !== undefined) {
-            payload.pages = pages;
-        }
-
-        if (price !== undefined) {
-            payload.price = price;
-        }
 
         try {
             setSaving(true);
 
-            const response = await fetch(`${BOOKS_API}/${id}`, {
+            await request(`${BOOKS_API}/${id}`, {
                 method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
 
-            const result = await response.json();
-
-            if (!response.ok || !result.success) {
-                throw new Error(
-                    result.message || 'Failed to update book.'
-                );
-            }
-
             setSuccess('Book updated successfully!');
-
-            setTimeout(() => {
-                navigate(`/books/${id}`);
-            }, 1000);
+            redirectTimer.current = setTimeout(
+                () => navigate(`/books/${id}`),
+                1000
+            );
         } catch (err) {
             setError(err.message || 'Something went wrong.');
         } finally {
@@ -214,131 +166,153 @@ const EditBook = () => {
         );
     }
 
-    if (error && !formData.title && !formData.author) {
+    if (loadError) {
         return (
             <main className="mx-auto max-w-3xl px-5 py-20 text-center">
-                <p className="text-red-600">{error}</p>
-                <Link
-                    to="/"
-                    className="mt-5 inline-flex items-center gap-2 text-[#2F8F70]"
-                >
-                    <ArrowLeft size={18} />
-                    Back to Library
-                </Link>
+                <AlertCircle className="mx-auto mb-4 text-red-500" size={42} />
+                <h1 className="text-2xl font-bold text-[#241942]">Unable to load book</h1>
+                <p className="mt-3 text-gray-500">{loadError}</p>
+                <div className="mt-6 flex justify-center gap-3">
+                    <button
+                        type="button"
+                        onClick={() => setReloadKey((k) => k + 1)}
+                        className="inline-flex items-center gap-2 bg-[#241942] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#2F8F70]"
+                    >
+                        <RefreshCw size={16} />
+                        Try again
+                    </button>
+                    <Link
+                        to="/"
+                        className="inline-flex items-center gap-2 border border-gray-200 px-5 py-3 text-sm font-semibold text-[#241942]"
+                    >
+                        <ArrowLeft size={16} />
+                        Back to library
+                    </Link>
+                </div>
             </main>
         );
     }
 
-    const fields = [
-        { name: 'title', label: 'Book Title', required: true },
-        { name: 'author', label: 'Author', required: true },
-        { name: 'genre', label: 'Genre' },
-        { name: 'isbn', label: 'ISBN' },
-        { name: 'publisher', label: 'Publisher' },
-        { name: 'publishedYear', label: 'Published Year', type: 'number' },
-        { name: 'language', label: 'Language' },
-        { name: 'pages', label: 'Number of Pages', type: 'number' },
-        { name: 'price', label: 'Price ($)', type: 'number' },
-        { name: 'format', label: 'Format' },
-        { name: 'edition', label: 'Edition' },
-        { name: 'coverImage', label: 'Cover Image URL', type: 'url' },
-        { name: 'tags', label: 'Tags', placeholder: 'fiction, classic, adventure' },
-    ];
+    const inputClass =
+        'w-full border border-[#E3DDEC] bg-white px-4 py-3 text-sm text-[#352B4A] outline-none transition focus:border-[#2F8F70] disabled:bg-gray-50';
+    const labelClass = 'mb-2 block text-sm font-semibold text-[#352B4A]';
+
+    const text = (name, label, extra = {}) => (
+        <div key={name}>
+            <label htmlFor={name} className={labelClass}>
+                {label}{extra.required && ' *'}
+            </label>
+            <input
+                id={name}
+                name={name}
+                type={extra.type || 'text'}
+                value={formData[name]}
+                onChange={handleChange}
+                min={extra.type === 'number' ? 0 : undefined}
+                step={name === 'price' ? '0.01' : extra.type === 'number' ? '1' : undefined}
+                placeholder={extra.placeholder}
+                className={inputClass}
+            />
+        </div>
+    );
+
+    const select = (name, label, options) => {
+        const list = options.includes(formData[name])
+            ? options
+            : [formData[name], ...options].filter(Boolean);
+        return (
+            <div key={name}>
+                <label htmlFor={name} className={labelClass}>{label}</label>
+                <select
+                    id={name}
+                    name={name}
+                    value={formData[name]}
+                    onChange={handleChange}
+                    className={inputClass}
+                >
+                    {list.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+            </div>
+        );
+    };
 
     return (
-        <main className="min-h-screen bg-[#F8F7FC] px-4 py-10 sm:px-6 lg:px-8">
+        <main className="min-h-screen bg-[#FAF9F6] px-4 py-10 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-4xl">
                 <Link
                     to={`/books/${id}`}
-                    className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-[#5C5274] hover:text-[#2F8F70]"
+                    className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-gray-500 transition hover:text-[#2F8F70]"
                 >
                     <ArrowLeft size={18} />
-                    Back to Book Details
+                    Back to book details
                 </Link>
 
-                <section className="rounded-3xl border border-[#EAE6F2] bg-white p-5 shadow-sm sm:p-8">
-                    <h1 className="text-3xl font-bold text-[#241942]">
-                        Edit Book
-                    </h1>
-                    <p className="mt-2 text-[#756B88]">
+                <section className="bg-white p-5 shadow-sm sm:p-8">
+                    <h1 className="text-3xl font-bold text-[#241942]">Edit book</h1>
+                    <p className="mt-2 text-sm text-gray-600">
                         Update the book information below.
                     </p>
 
                     {error && (
-                        <p role="alert" className="mt-5 rounded-xl bg-red-50 p-3 text-sm text-red-700">
-                            {error}
-                        </p>
+                        <div role="alert" className="mt-5 flex gap-3 border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                            <AlertCircle size={19} className="shrink-0" />
+                            <p>{error}</p>
+                        </div>
                     )}
 
                     {success && (
-                        <p role="status" className="mt-5 rounded-xl bg-green-50 p-3 text-sm text-green-700">
-                            {success}
-                        </p>
+                        <div role="status" className="mt-5 flex gap-3 border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+                            <CheckCircle2 size={19} className="shrink-0" />
+                            <p>{success}</p>
+                        </div>
                     )}
 
-                    <form onSubmit={handleSubmit} className="mt-7 space-y-6">
-                        <div className="grid gap-5 sm:grid-cols-2">
-                            {fields.map((field) => (
-                                <div key={field.name}>
-                                    <label
-                                        htmlFor={field.name}
-                                        className="mb-2 block text-sm font-semibold text-[#352B4A]"
-                                    >
-                                        {field.label}
-                                        {field.required && ' *'}
-                                    </label>
-
-                                    <input
-                                        id={field.name}
-                                        name={field.name}
-                                        type={field.type || 'text'}
-                                        value={formData[field.name]}
-                                        onChange={handleChange}
-                                        required={field.required || false}
-                                        placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
-                                        min={field.type === 'number' ? 0 : undefined}
-                                        step={field.name === 'price' ? '0.01' : '1'}
-                                        className="w-full rounded-xl border border-[#E3DDEC] bg-white px-4 py-3 text-[#352B4A] outline-none transition focus:border-[#2F8F70] focus:ring-2 focus:ring-[#2F8F70]/15"
-                                    />
+                    <form onSubmit={handleSubmit} noValidate className="mt-7 space-y-6">
+                        <fieldset disabled={saving || Boolean(success)} className="min-w-0 space-y-6 disabled:opacity-80">
+                            <div className="grid gap-5 sm:grid-cols-2">
+                                {text('title', 'Book title', { required: true })}
+                                {text('author', 'Author', { required: true })}
+                                {select('genre', 'Genre', GENRES)}
+                                {select('format', 'Format', FORMATS)}
+                                {text('isbn', 'ISBN')}
+                                {text('publisher', 'Publisher')}
+                                {text('publishedYear', 'Publication year', { type: 'number' })}
+                                {text('pages', 'Number of pages', { type: 'number' })}
+                                {text('language', 'Language')}
+                                {text('edition', 'Edition')}
+                                {text('price', 'Price ($)', { type: 'number' })}
+                                {text('coverImage', 'Cover image URL', { type: 'url' })}
+                                <div className="sm:col-span-2">
+                                    {text('tags', 'Tags', { placeholder: 'fiction, classic, adventure' })}
                                 </div>
-                            ))}
-                        </div>
+                            </div>
 
-                        <div>
-                            <label
-                                htmlFor="description"
-                                className="mb-2 block text-sm font-semibold text-[#352B4A]"
-                            >
-                                Description
-                            </label>
-                            <textarea
-                                id="description"
-                                name="description"
-                                rows={5}
-                                value={formData.description}
-                                onChange={handleChange}
-                                placeholder="Write a short description of the book..."
-                                className="w-full rounded-xl border border-[#E3DDEC] px-4 py-3 text-[#352B4A] outline-none transition focus:border-[#2F8F70] focus:ring-2 focus:ring-[#2F8F70]/15"
-                            />
-                        </div>
+                            <div>
+                                <label htmlFor="description" className={labelClass}>Description</label>
+                                <textarea
+                                    id="description"
+                                    name="description"
+                                    rows={5}
+                                    value={formData.description}
+                                    onChange={handleChange}
+                                    className={inputClass}
+                                />
+                            </div>
+                        </fieldset>
 
-                        <div className="flex flex-wrap gap-3 border-t border-[#EEEAF4] pt-6">
+                        <div className="flex flex-wrap gap-3 border-t border-gray-100 pt-6">
                             <button
                                 type="submit"
-                                disabled={saving}
-                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#241942] px-5 py-3 font-semibold text-white transition hover:bg-[#35265A] disabled:cursor-not-allowed disabled:opacity-60"
+                                disabled={saving || Boolean(success)}
+                                className="inline-flex items-center justify-center gap-2 border border-[#241942] bg-[#241942] px-6 py-3 text-sm font-semibold text-white transition hover:border-[#2F8F70] hover:bg-[#2F8F70] disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                {saving ? (
-                                    <LoaderCircle className="animate-spin" size={18} />
-                                ) : (
-                                    <Save size={18} />
-                                )}
-                                {saving ? 'Saving Changes...' : 'Save Changes'}
+                                {saving ? <LoaderCircle className="animate-spin" size={18} /> : <Save size={18} />}
+                                {saving ? 'Saving changes...' : 'Save changes'}
                             </button>
 
                             <Link
                                 to={`/books/${id}`}
-                                className="rounded-xl border border-[#E3DDEC] px-5 py-3 font-semibold text-[#5C5274] transition hover:bg-[#F8F7FC]"
+                                className="border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-[#241942] transition hover:bg-gray-50"
                             >
                                 Cancel
                             </Link>
